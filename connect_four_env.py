@@ -22,7 +22,7 @@ class ConnectFourEnv():
         return self.formatState()
 
     def formatState(self):
-        return torch.tensor(np.stack(((self.board == YELLOW).astype(np.float32), (self.board == RED).astype(np.float32))), device=DEVICE)
+        return torch.tensor([np.stack(((self.board == YELLOW).astype(np.float32), (self.board == RED).astype(np.float32)))], device=DEVICE)
 
     # Returns the row it's placed in or -1 if it was illegal
     def takeAction(self, action):

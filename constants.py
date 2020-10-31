@@ -8,6 +8,21 @@ EMPTY = 0
 YELLOW = 1
 RED = 2
 
+# Misc
+TRAINING_EPOCHS = 1000
+
+# Agent
+LEARNING_RATE = 0.0001
+NUM_TRAJECTORIES = 50
+GAMMA = 0.95
+GAE_LAMBDA = 0.95
+BATCH_SIZE = 1024
+SGD_EPOCHS = 50
+PPO_CLIP_EPSILON = 0.1
+ENTROPY_FACTOR = 0.005
+PI_TO_V_IMPORTANCE_FACTOR = 0.5
+MAX_KL_DIVERGENCE = 0.005
+
 # PyTorch
 import torch
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
