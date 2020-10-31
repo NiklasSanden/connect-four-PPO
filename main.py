@@ -31,6 +31,26 @@ def playAgent(env, agentsTrainer):
             print(env.board)
             yourTurn = 1 - yourTurn
 
+def watchAgents(env, agentsTrainer):
+    while True:
+        quit = int(input("Quit? (1=Yes, 0=No) "))
+        if quit == 1:
+            break
+        
+        state = env.reset()
+        done = False
+        print(env.board)
+        while not done:
+            action = 0
+            if env.turn == YELLOW:
+                action = agentsTrainer.get_action(state, True)
+            else:
+                action = agentsTrainer.get_action(state, False)
+            
+            state, reward, done = env.step(action)
+            print(env.board)
+            input("Next: ")
+
 if __name__ == '__main__':
     env = ConnectFourEnv()
     agentsTrainer = AgentsTrainer(env)
@@ -42,5 +62,9 @@ if __name__ == '__main__':
     play = int(input("Play? (1=Yes, 0=No) "))
     if play == 1:
         playAgent(env, agentsTrainer)
+    
+    watch = int(input("Watch? (1=Yes, 0=No) "))
+    if watch == 1:
+        watchAgents(env, agentsTrainer)
     
     print("All done")

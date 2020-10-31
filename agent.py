@@ -36,18 +36,47 @@ class PPOHead(nn.Module):
     def forward(self, X):
         return self.fc(self.base[0](X))
 
+class PPOFull(nn.Module):
+    def __init__(self, n_outputs):
+        super(PPOFull, self).__init__()
+
+        self.cnn = nn.Sequential(
+            nn.Conv2d(2, 32, CONNECT_X),
+            nn.ReLU(),
+            nn.Conv2d(32, 64, 3, padding=1),
+            nn.ReLU()
+        )
+
+        self.fc = nn.Sequential(
+            nn.Linear(64 * (BOARD_HEIGHT - CONNECT_X + 1) * (BOARD_WIDTH - CONNECT_X + 1), 512),
+            nn.ReLU(),
+            nn.Linear(512, n_outputs)
+        )
+
+    def forward(self, X):
+        assert len(X.shape) == 4 and X.shape[1] == 2 and X.shape[2] == BOARD_HEIGHT and X.shape[3] == BOARD_WIDTH
+        out = self.cnn(X).view(X.shape[0], -1)
+        return self.fc(out)
+
 class Agent():
     def __init__(self, name):
         self.name = name
-        self.base = PPOBase().to(DEVICE)
-        self.V = PPOHead(self.base, 1).to(DEVICE)
-        self.PI = PPOHead(self.base, BOARD_WIDTH).to(DEVICE)
-        self.optimizer = torch.optim.Adam(list(self.base.parameters()) + list(self.V.parameters()) + list(self.PI.parameters()), lr=LEARNING_RATE)
+        
+        # Use if you want a them to have the same base - remember to uncomment it in saving and loading
+        #self.base = PPOBase().to(DEVICE)
+        #self.V = PPOHead(self.base, 1).to(DEVICE)
+        #self.PI = PPOHead(self.base, BOARD_WIDTH).to(DEVICE)
+        #self.optimizer = torch.optim.Adam(list(self.base.parameters()) + list(self.V.parameters()) + list(self.PI.parameters()), lr=LEARNING_RATE)
+        
+        self.V = PPOFull(1).to(DEVICE)
+        self.PI = PPOFull(BOARD_WIDTH).to(DEVICE)
+        self.optimizer = torch.optim.SGD(list(self.V.parameters()) + list(self.PI.parameters()), lr=LEARNING_RATE)
+
         self.load()
     
     def load(self):
         if os.path.isdir("save"):
-            self.base.load_state_dict(torch.load("save/" + self.name + "_base.pt", map_location=DEVICE))
+            #self.base.load_state_dict(torch.load("save/" + self.name + "_base.pt", map_location=DEVICE))
             self.V.load_state_dict(torch.load("save/" + self.name + "_V.pt", map_location=DEVICE))
             self.PI.load_state_dict(torch.load("save/" + self.name + "_PI.pt", map_location=DEVICE))
             self.optimizer.load_state_dict(torch.load("save/" + self.name + "_optimizer.pt", map_location=DEVICE))
@@ -58,7 +87,7 @@ class Agent():
     def save(self):
         if os.path.isdir("save") == False:
             os.mkdir("save")
-        torch.save(self.base.state_dict(), "save/" + self.name + "_base.pt")
+        #torch.save(self.base.state_dict(), "save/" + self.name + "_base.pt")
         torch.save(self.V.state_dict(), "save/" + self.name + "_V.pt")
         torch.save(self.PI.state_dict(), "save/" + self.name + "_PI.pt")
         torch.save(self.optimizer.state_dict(), "save/" + self.name + "_optimizer.pt")
@@ -79,7 +108,7 @@ class Agent():
         assert len(m.shape) == 2 and m.shape[0] == logits.shape[0] and m.shape[1] == 1
         logits -= m
         probs = torch.exp(logits) / torch.sum(torch.exp(logits), dim=1, keepdim=True)
-        logits = torch.clamp(logits, 0.001, 0.9999)
+        probs = torch.clamp(probs, 0.001, 0.999)
         assert len(probs.shape) == 2 and probs.shape[0] == states.shape[0] and probs.shape[1] == BOARD_WIDTH
         return probs
 
@@ -245,6 +274,7 @@ class Agent():
                         kl_divergence = torch.sum(probs * torch.log(probs / old_probs), dim=1).mean()
                         if kl_divergence >= MAX_KL_DIVERGENCE:
                             outside_KL = True
+                            #print("Outside_KL: ", self.name)
             
             # Optimize
             self.optimizer.step()
@@ -288,8 +318,9 @@ class AgentsTrainer():
             self.secondAgent.compute_advantage()
             self.secondAgent.train()
 
-            self.firstAgent.save()
-            self.secondAgent.save()
+            if ((epoch + 1) % SAVE_EVERY_X_EPOCHS == 0 or epoch + 1 == epochs):
+                self.firstAgent.save()
+                self.secondAgent.save()
     
     def get_action(self, state, first_agent=True):
         if first_agent:
